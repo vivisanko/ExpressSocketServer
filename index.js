@@ -54,7 +54,7 @@ wsServer.on('connection', (ws, request) => {
             console.log('map', map);
             
             if(key!==userId){
-                 ws.send(`Hello, you sent -> ${message}`);
+                 value.send(`Hello, you sent -> ${message}`);
                 }
             }
         )
