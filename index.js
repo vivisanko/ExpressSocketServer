@@ -3,11 +3,16 @@ const express = require("express");
 const http = require('http');
 const WebSocket = require("ws");
 const uuid = require('uuid');
-
+const R = require('ramda');
+const { THEMES, TYPES } = require('./constants');
+const {createGeneralMessage, createAdditionalMessage} = require('./helpers/messages');
 const app = express();
 
 
 const map = new Map();
+const nickNames = new Map();
+let userIds = [];
+let partyTheme = "";
 
 const sessionParser = session({
     saveUninitialized: false,
@@ -19,16 +24,20 @@ const sessionParser = session({
 const server = http.createServer(app);
 const wsServer = new WebSocket.Server({ clientTracking: false, noServer: true });
 
+ // msg={"step": 0, "message": "привет"}
+ // connect = ws://localhost:8080/
+
 server.on('upgrade', function(request, socket, head) {
   console.log('Parsing session from request...');
 
   sessionParser(request, {}, () => {
-    // if (!request.session.userId) {
-    //   socket.destroy();
-    //   console.log('!request.session.userId', !request.session.userId);
-      
-    //   return;
-    // }
+    if (partyTheme!=='') {
+      socket.destroy();
+      console.log('the game has already begun');
+      console.log('partyTheme', partyTheme);
+
+      return;
+    }
 
 
     wsServer.handleUpgrade(request, socket, head, function(ws) {
@@ -44,27 +53,72 @@ wsServer.on('connection', (ws, request) => {
     const userId = request.session.userId;
 
     map.set(userId, ws);
+    userIds.push(userId);
+    console.log('userIds', userIds);
+    map.forEach((value, key, map)=> {
+      value.send(createGeneralMessage({
+        partyTheme,
+        numberOfPlayers: userIds.length,
+        actions: ""}));
+    })
 
-  console.log('map', map);
-  
-    ws.on('message', function(message) {
-        console.log(`Received message ${message} from user ${userId}`);
-        map.forEach((value, key, map)=> {
-            console.log('key', key);
-            console.log('map', map);
-            
+
+    ws.on('message', function(msg) {
+        console.log(`Received message ${msg} from user ${userId}`);
+        const messageObject=JSON.parse(msg);
+        const {step, message} = messageObject;
+        console.log('messageObject', messageObject);
+        console.log('step', step);
+        console.log('message', message);
+        if (step === 1 && nickNames.size < userIds.length) {
+          if(partyTheme===''){
+          partyTheme = THEMES[Math.floor(Math.random() * THEMES.length)];
+          map.forEach((value, key, map)=> {
+            value.send(createGeneralMessage({
+              partyTheme,
+              numberOfPlayers: userIds.length,
+              actions: ""}));
+          })
+        } else {
+             const userIndex = R.indexOf(userId, userIds);
+             const nextIndex = userIndex + 1 < userIds.length ? userIndex + 1 : 0;
+            nickNames.set(userIds[nextIndex], message);
+            console.log('nickNames', nickNames);
+          }
+        }
+
+
+        if (step===2 && nickNames.size === userIds.length){
+          map.forEach((value, key, map)=> {
             if(key!==userId){
-                 value.send(`Hello, you sent -> ${message}`);
+                value.send(createAdditionalMessage({
+                  person: `${nickNames.get(userId)}`,
+                  message,
+              }))
                 }
             }
-        )
-    });
-  
+           )
+          }
+      });
+
     ws.on('close', function() {
+      console.log('userId', userId);
+
+      userIds = R.reject(el=>el===userId,userIds);
+      console.log('R.reject(userId)(userIds)', userIds);
+
       map.delete(userId);
+
+      map.forEach((value, key, map)=> {
+          value.send(createGeneralMessage({
+            partyTheme,
+            numberOfPlayers: userIds.length,
+            actions: `${nickNames.get(userId)} left us`}));
+      })
+      nickNames.delete(userIds);
     });
   });
-  
+
 
 
 //start our server
