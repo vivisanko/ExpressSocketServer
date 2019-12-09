@@ -5,4 +5,8 @@ GENERAL: 'general',
 ADDITIONAL: 'additional',
 }
 
-module.exports = {THEMES, TYPES};
+const ACTION_MESSAGES = {
+  START: 'guess who you are',
+}
+
+module.exports = {THEMES, TYPES, ACTION_MESSAGES};

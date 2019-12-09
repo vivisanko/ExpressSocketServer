@@ -4,7 +4,7 @@ const http = require('http');
 const WebSocket = require("ws");
 const uuid = require('uuid');
 const R = require('ramda');
-const { THEMES, TYPES } = require('./constants');
+const { THEMES, TYPES, ACTION_MESSAGES } = require('./constants');
 const {createGeneralMessage, createAdditionalMessage} = require('./helpers/messages');
 const app = express();
 
@@ -71,6 +71,8 @@ wsServer.on('connection', (ws, request) => {
         console.log('step', step);
         console.log('message', message);
         if (step === 1 && nickNames.size < userIds.length) {
+          console.log('partyTheme', partyTheme);
+
           if(partyTheme===''){
           partyTheme = THEMES[Math.floor(Math.random() * THEMES.length)];
           map.forEach((value, key, map)=> {
@@ -84,6 +86,14 @@ wsServer.on('connection', (ws, request) => {
              const nextIndex = userIndex + 1 < userIds.length ? userIndex + 1 : 0;
             nickNames.set(userIds[nextIndex], message);
             console.log('nickNames', nickNames);
+            if (nickNames.size===userIds.length){
+              map.forEach((value, key, map)=> {
+                value.send(createGeneralMessage({
+                  partyTheme,
+                  numberOfPlayers: userIds.length,
+                  actions: ACTION_MESSAGES.START}));
+              })
+            }
           }
         }
 
@@ -105,9 +115,10 @@ wsServer.on('connection', (ws, request) => {
       console.log('userId', userId);
 
       userIds = R.reject(el=>el===userId,userIds);
-      console.log('R.reject(userId)(userIds)', userIds);
+      console.log('R.reject(userId)(userIds)', userId, userIds);
 
       map.delete(userId);
+
 
       map.forEach((value, key, map)=> {
           value.send(createGeneralMessage({
@@ -116,6 +127,9 @@ wsServer.on('connection', (ws, request) => {
             actions: `${nickNames.get(userId)} left us`}));
       })
       nickNames.delete(userIds);
+      if (partyTheme && R.isEmpty(userIds)){
+        partyTheme = '';
+      }
     });
   });
 
