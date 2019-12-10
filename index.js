@@ -13,6 +13,7 @@ const map = new Map();
 const nickNames = new Map();
 let userIds = [];
 let partyTheme = "";
+let activeUserIdx = 0;
 
 const sessionParser = session({
     saveUninitialized: false,
@@ -70,11 +71,15 @@ wsServer.on('connection', (ws, request) => {
         console.log('messageObject', messageObject);
         console.log('step', step);
         console.log('message', message);
+        console.log('nickNames.size', nickNames.size);
+        console.log('userIds', userIds);
+
         if (step === 1 && nickNames.size < userIds.length) {
           console.log('partyTheme', partyTheme);
 
           if(partyTheme===''){
           partyTheme = THEMES[Math.floor(Math.random() * THEMES.length)];
+
           map.forEach((value, key, map)=> {
             value.send(createGeneralMessage({
               partyTheme,
@@ -91,7 +96,9 @@ wsServer.on('connection', (ws, request) => {
                 value.send(createGeneralMessage({
                   partyTheme,
                   numberOfPlayers: userIds.length,
-                  actions: ACTION_MESSAGES.START}));
+                  actions: key===userIds[activeUserIdx] ? ACTION_MESSAGES.ASK : ACTION_MESSAGES.ANSWER ,
+                  isActive: key===userIds[activeUserIdx],
+                }));
               })
             }
           }
@@ -104,6 +111,7 @@ wsServer.on('connection', (ws, request) => {
                 value.send(createAdditionalMessage({
                   person: `${nickNames.get(userId)}`,
                   message,
+                  isActive: key===userIds[activeUserIdx],
               }))
                 }
             }
@@ -129,6 +137,7 @@ wsServer.on('connection', (ws, request) => {
       nickNames.delete(userIds);
       if (partyTheme && R.isEmpty(userIds)){
         partyTheme = '';
+        nickNames.clear();
       }
     });
   });
