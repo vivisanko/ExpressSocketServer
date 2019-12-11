@@ -14,6 +14,7 @@ const nickNames = new Map();
 let userIds = [];
 let partyTheme = "";
 let activeUserIdx = 0;
+let isAcceptAnswer = false;
 
 const sessionParser = session({
     saveUninitialized: false,
@@ -73,6 +74,8 @@ wsServer.on('connection', (ws, request) => {
         console.log('message', message);
         console.log('nickNames.size', nickNames.size);
         console.log('userIds', userIds);
+        console.log('activeUserIdx', activeUserIdx);
+
 
         if (step === 1 && nickNames.size < userIds.length) {
           console.log('partyTheme', partyTheme);
@@ -92,11 +95,12 @@ wsServer.on('connection', (ws, request) => {
             nickNames.set(userIds[nextIndex], message);
             console.log('nickNames', nickNames);
             if (nickNames.size===userIds.length){
+
               map.forEach((value, key, map)=> {
                 value.send(createGeneralMessage({
                   partyTheme,
                   numberOfPlayers: userIds.length,
-                  actions: key===userIds[activeUserIdx] ? ACTION_MESSAGES.ASK : ACTION_MESSAGES.ANSWER ,
+                  actions: key===userIds[activeUserIdx] ? ACTION_MESSAGES.ASK : ACTION_MESSAGES.TYPING(nickNames.get(userIds[activeUserIdx])),
                   isActive: key===userIds[activeUserIdx],
                 }));
               })
@@ -104,37 +108,90 @@ wsServer.on('connection', (ws, request) => {
           }
         }
 
-
         if (step===2 && nickNames.size === userIds.length){
+          isAcceptAnswer=true;
           map.forEach((value, key, map)=> {
             if(key!==userId){
                 value.send(createAdditionalMessage({
                   person: `${nickNames.get(userId)}`,
                   message,
-                  isActive: key===userIds[activeUserIdx],
               }))
                 }
             }
            )
+           map.forEach((value, key, map)=> {
+            value.send(createGeneralMessage({
+              partyTheme,
+              numberOfPlayers: userIds.length,
+              actions: key===userIds[activeUserIdx] ? '...wait' : ACTION_MESSAGES.ANSWER,
+              isActive: false,
+            }));
+          })
+          if(message==="yes" || message ==="no" && isAcceptAnswer) {
+            console.log('YoN message', message);
+            const newActiveUser=()=>{
+              if(message==='yes'){
+                return activeUserIdx
+              } else {
+                return activeUserIdx+1< userIds.length ? activeUserIdx+1 : 0;
+              }
+            }
+            activeUserIdx= newActiveUser();
+            isAcceptAnswer = false;
+           map.forEach((value, key, map)=> {
+            value.send(createGeneralMessage({
+              partyTheme,
+              numberOfPlayers: userIds.length,
+              actions: key===userIds[activeUserIdx] ? ACTION_MESSAGES.ASK : ACTION_MESSAGES.TYPING(nickNames.get(userIds[activeUserIdx])),
+              isActive: key===userIds[activeUserIdx],
+            }));
+          })
+        }
           }
       });
 
     ws.on('close', function() {
       console.log('userId', userId);
+      console.log('activeUserIdx on close', activeUserIdx);
+      const applyNewActiveUserId = () => {
+        console.log('applyNew');
+
+        if(userIds[activeUserIdx]!==userId || userIds[activeUserIdx + 1] >= userIds.length) {
+          const result = userIds[activeUserIdx];
+          console.log('result newInd if left another user', result);
+
+          return result
+
+        } else {
+          const result = userIds[activeUserIdx + 1];
+          console.log('result newInd if left userId', result);
+
+          return result
+        }
+      }
+      const newActiveUserId = applyNewActiveUserId();
+      console.log('newActiveUserId', newActiveUserId);
 
       userIds = R.reject(el=>el===userId,userIds);
       console.log('R.reject(userId)(userIds)', userId, userIds);
 
       map.delete(userId);
 
-
+      isAcceptAnswer=false;
       map.forEach((value, key, map)=> {
           value.send(createGeneralMessage({
             partyTheme,
             numberOfPlayers: userIds.length,
-            actions: `${nickNames.get(userId)} left us`}));
+            actions: key===newActiveUserId ? ACTION_MESSAGES.ASK : ACTION_MESSAGES.TYPING(nickNames.get(newActiveUserId)),
+            isActive: key===newActiveUserId,
+          }));
+          value.send(createAdditionalMessage({
+            person: `${nickNames.get(userId)} left us`,
+            message:'',
+        }))
       })
-      nickNames.delete(userIds);
+      activeUserIdx=R.indexOf(newActiveUserId, userIds);
+      nickNames.delete(userId);
       if (partyTheme && R.isEmpty(userIds)){
         partyTheme = '';
         nickNames.clear();

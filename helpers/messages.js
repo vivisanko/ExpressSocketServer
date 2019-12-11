@@ -14,14 +14,13 @@ return `
    })}}`
 };
 
-const createAdditionalMessage = (values = {person: 'anonymous', message: '', isActive: false}) => {
-  const {person, message, isActive} = values;
+const createAdditionalMessage = (values = {person: 'anonymous', message: ''}) => {
+  const {person, message} = values;
   return `
   {"type": "${TYPES.ADDITIONAL}",
    "message": ${JSON.stringify({
      person,
      message,
-     isActive,
      timestamp: Date.now(),
      })}}`
   };
