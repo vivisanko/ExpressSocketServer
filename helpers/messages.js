@@ -2,7 +2,6 @@ const { TYPES } = require('../constants');
 
 
 const createGeneralMessage = (values = {partyTheme: '', numberOfPlayers: 1, actions: '', isActive: false}) => {
-  console.log('values', values);
 const {partyTheme, numberOfPlayers, actions, isActive} = values;
 return `
 {"type": "${TYPES.GENERAL}",
@@ -25,4 +24,15 @@ const createAdditionalMessage = (values = {person: 'anonymous', message: ''}) =>
      })}}`
   };
 
-module.exports = {createGeneralMessage, createAdditionalMessage};
+  const createFinalMessage = (winners,names, person) => {
+    const  placeRating=JSON.stringify(winners.map(el=>names.get(el)));
+    const personPlace = winners.findIndex(el=>el===person);
+    return `
+    {"type": "${TYPES.FINAL}",
+     "message": ${JSON.stringify({
+       placeRating,
+       personPlace,
+     })}}`
+    };
+
+module.exports = {createGeneralMessage, createAdditionalMessage, createFinalMessage};
