@@ -33,14 +33,13 @@ const wsServer = new WebSocket.Server({ clientTracking: false, noServer: true })
  // connect = ws://localhost:8080/
  const game = new Game();
  game.sayPartyTheme();
- console.log('game', game);
 
 
 server.on('upgrade', function(request, socket, head) {
   console.log('Parsing session from request...');
 
   sessionParser(request, {}, () => {
-    if (partyTheme!=='') {
+    if (game.partyTheme!=='') {
       socket.destroy();
       console.log('the game has already begun');
       console.log('partyTheme', partyTheme);
@@ -60,62 +59,11 @@ server.on('upgrade', function(request, socket, head) {
 
 wsServer.on('connection', (ws, request) => {
     const userId = request.session.userId;
-
-    map.set(userId, ws);
-    userIds.push(userId);
-    console.log('userIds', userIds);
-    map.forEach((value, key, map)=> {
-      value.send(createGeneralMessage({
-        partyTheme,
-        numberOfPlayers: userIds.length,
-        actions: ""}));
-    })
-
+    game.handleConnection(userId, ws);
 
     ws.on('message', function(msg) {
-        console.log(`Received message ${msg} from user ${userId}`);
-        const messageObject=JSON.parse(msg);
-        const {step, message} = messageObject;
-        console.log('messageObject', messageObject);
-        console.log('step', step);
-        console.log('message', message);
-        console.log('nickNames.size', nickNames.size);
-        console.log('userIds', userIds);
-        console.log('activeUserIdx', activeUserIdx);
+        game.handleMessageFromClient(msg, userId);
 
-
-        if (step === 1 && nickNames.size < userIds.length) {
-          console.log('partyTheme', partyTheme);
-
-          if(partyTheme===''){
-          partyTheme = THEMES[Math.floor(Math.random() * THEMES.length)];
-          nickNames.clear();
-          activeUserIdx=0;
-
-          map.forEach((value, key, map)=> {
-            value.send(createGeneralMessage({
-              partyTheme,
-              numberOfPlayers: userIds.length,
-              actions: ""}));
-          })
-        } else {
-             const userIndex = R.indexOf(userId, userIds);
-             const nextIndex = userIndex + 1 < userIds.length ? userIndex + 1 : 0;
-            nickNames.set(userIds[nextIndex], message.trim());
-            console.log('nickNames', nickNames);
-            if (nickNames.size===userIds.length){
-
-              map.forEach((value, key, map)=> {
-                value.send(createGeneralMessage({
-                  partyTheme,
-                  numberOfPlayers: userIds.length,
-                  actions: key===userIds[activeUserIdx] ? ACTION_MESSAGES.ASK : ACTION_MESSAGES.TYPING(nickNames.get(userIds[activeUserIdx])),
-                  isActive: key===userIds[activeUserIdx],
-                }));
-              })
-            }
-          }
-        }
 
         if (step===2 && nickNames.size === userIds.length){
 
