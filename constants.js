@@ -6,6 +6,11 @@ ADDITIONAL: 'additional',
 FINAL: 'final',
 }
 
+const CLIENT_MESSAGES = {
+  RIGHT: 'yes',
+  WRONG: 'no',
+}
+
 const ACTION_MESSAGES = {
   START: 'guess who you are',
   ASK: 'you can ask',
@@ -19,4 +24,4 @@ const ACTION_MESSAGES = {
   LAST: 'you are the last player, everyone left the game'
 }
 
-module.exports = {THEMES, TYPES, ACTION_MESSAGES};
+module.exports = {THEMES, TYPES, ACTION_MESSAGES, CLIENT_MESSAGES};
