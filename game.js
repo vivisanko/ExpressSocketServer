@@ -96,23 +96,23 @@ class Game {
   }
 
   processUserExit(userId){
-    const {userIds, activeUserIdx, map, nickNames, partyTheme} = this;
-    userIds = R.reject(el=>el===userId,userIds);
-      const newActiveUserIdx = activeUserIdx===0 ? userIds.length - 1 : activeUserIdx - 1;
-      console.log('R.reject(userId)(userIds)', userId, userIds);
-      console.log('newActiveUserIdx', userIds[newActiveUserIdx]);
+    // переписать newActiveUserIndex и логику elses
+    this.userIds = R.reject(el=>el===userId,this.userIds);
+      // const newActiveUserIdx = this.activeUserIdx===0 ? this.userIds.length - 1 : this.activeUserIdx - 1;
+      const newActiveUserIdx=0;
+      console.log('newActiveUserIdx', this.userIds[newActiveUserIdx]);
 
-      map.delete(userId);
-      if(map.size===1){
+      this.map.delete(userId);
+      if(this.map.size===1){
         this.sendCommonGeneralMessage(ACTION_MESSAGES.LAST);
       } else {
-        this.sendIndividualGeneralMessage(true);
+        this.sendIndividualGeneralMessage(false);
         this.sendAdditionalMessageAboutExit(userId);
       }
 
-      activeUserIdx=newActiveUserIdx;
-      nickNames.delete(userId);
-      if (partyTheme && R.isEmpty(userIds)){
+      this.activeUserIdx=newActiveUserIdx;
+      this.nickNames.delete(userId);
+      if (this.partyTheme && R.isEmpty(this.userIds)){
        this.clearData();
       }
   }
