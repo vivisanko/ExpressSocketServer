@@ -17,11 +17,6 @@ class Game {
     this.isNicknameUnraveled = false;
   }
 
-  sayPartyTheme() {
-    this.partyTheme='test'
-    console.log('partyTheme', this.partyTheme);
-  }
-
   handleConnection(userId, ws) {
     const {map, userIds} = this;
     map.set(userId, ws);
@@ -41,11 +36,11 @@ class Game {
     console.log('userIds', userIds);
     console.log('activeUserIdx', activeUserIdx);
     if(step===1){
-      takeFirstStepActions(message, userId)
+      this.takeFirstStepActions(message, userId)
     }
 
-    if(step===2 && tnickNames.size === userIds.length){
-      takeSecondStepActions(message, userId)
+    if(step===2 && nickNames.size === userIds.length){
+      this.takeSecondStepActions(message, userId)
     }
   }
 
@@ -83,19 +78,19 @@ class Game {
   }
 
   takeSecondStepActions(msg, userId){
-    const {isAcceptAnswer, nickNames, userIds, activeUserIdx, isIncludeNickname, isNicknameUnraveled } = this;
-    if(!isAcceptAnswer){
-      isIncludeNickname = msg.toLowerCase().includes(nickNames.get(userIds[activeUserIdx]).toLowerCase());
-      isNicknameUnraveled = message.toLowerCase().trim() === nickNames.get(userIds[activeUserIdx]).toLowerCase();
-      isAcceptAnswer=true;
+    const {nickNames, userIds, activeUserIdx} = this;
+    if(!this.isAcceptAnswer){
+      this.isIncludeNickname = msg.toLowerCase().includes(`${nickNames.get(userIds[activeUserIdx]).toLowerCase()}`);
+      this.isNicknameUnraveled = msg.toLowerCase().trim() === nickNames.get(userIds[activeUserIdx]).toLowerCase();
+      this.isAcceptAnswer=true;
       }
-      console.log('isIncludeNickname', isIncludeNickname);
-      console.log('isNicknameUnraveled', isNicknameUnraveled);
+      console.log('isIncludeNickname', this.isIncludeNickname);
+      console.log('isNicknameUnraveled', this.isNicknameUnraveled);
       this.sendAdditionalMessageToAllOthers(msg,userId);
       this.sendIndividualGeneralMessage(false);
-      if(msg===CLIENT_MESSAGES.RIGHT || msg===CLIENT_MESSAGES.WRONG && isAcceptAnswer){
+      if(msg===CLIENT_MESSAGES.RIGHT || msg===CLIENT_MESSAGES.WRONG && this.isAcceptAnswer){
         this.processBoolClientMessages(msg);
-        isAcceptAnswer=false;
+        this.isAcceptAnswer=false;
         this.checkIsGameOver();
       }
   }
@@ -133,38 +128,40 @@ class Game {
   }
 
   processBoolClientMessages(msg) {
-    const {isIncludeNickname, isNicknameUnraveled, activeUserIdx, userIds, winners} = this;
     if(msg===CLIENT_MESSAGES.WRONG){
-      isIncludeNickname = false;
-      isNicknameUnraveled = false;
-      activeUserIdx = this.createNewActiveUserIndex(activeUserIdx, userIds, winners);
-    } else if(isNicknameUnraveled){
+      this.isIncludeNickname = false;
+      this.isNicknameUnraveled = false;
+      this.activeUserIdx = this.createNewActiveUserIndex();
+    } else if(this.isNicknameUnraveled){
       this.handleNextWinner();
     }
   }
 
   handleNextWinner(){
-    const {activeUserIdx, userIds, winners, isIncludeNickname, isNicknameUnraveled}=this;
+    const {activeUserIdx, userIds, winners}=this;
     this.sendAdditionalMessageAboutWinner();
     const previousActiveInd = activeUserIdx;
-    activeUserIdx = createNewActiveUserIndex(activeUserIdx, userIds, winners);
+    this.activeUserIdx = this.createNewActiveUserIndex();
     winners.push(userIds[previousActiveInd]);
-    isIncludeNickname = false;
-    isNicknameUnraveled = false;
+    this.isIncludeNickname = false;
+    this.isNicknameUnraveled = false;
   }
 
-  createNewActiveUserIndex(arr, ind, winners){
+  createNewActiveUserIndex(){
+    const {userIds, activeUserIdx, winners} = this;
+
     return R.compose(
       activeUsers=>{
         console.log('winners in compose', winners);
 
+        console.log('ind', activeUserIdx);
 
-        const indNowFromActive=R.indexOf(arr[ind], activeUsers);
+        const indNowFromActive=R.indexOf(userIds[activeUserIdx], activeUsers);
         console.log('indNowFromActive', indNowFromActive);
-        return R.indexOf(activeUsers[R.lt(R.inc(indNowFromActive),R.length(activeUsers))?R.inc(indNowFromActive):0], arr)
+        return R.indexOf(activeUsers[R.lt(R.inc(indNowFromActive),R.length(activeUsers))?R.inc(indNowFromActive):0], userIds)
       },
       R.reject(el=>R.includes(el,winners)),
-    )(arr,ind)
+    )(userIds,activeUserIdx)
   }
 
   createNicknames (msg, userId) {
@@ -190,7 +187,7 @@ class Game {
   }
 
   sendAdditionalMessageAboutWinner() {
-    const {userIds, nickNames, activeUserIdx} = this;
+    const {userIds, nickNames, activeUserIdx, map} = this;
     const messageToOtherClients = createAdditionalMessage({
       person: ACTION_MESSAGES.WINNER_HERE(nickNames.get(userIds[activeUserIdx])),
       message: '',
@@ -242,7 +239,7 @@ class Game {
     const messageToActiveClient = createGeneralMessage({
       partyTheme: partyTheme,
       numberOfPlayers: userIds.length,
-      actions: isAskType ? messageForActiveUser(isIncludeNickname && !isNicknameUnraveled): ACTION_MESSAGES.WAIT,
+      actions: isAskType ? this.messageForActiveUser(isIncludeNickname && !isNicknameUnraveled): ACTION_MESSAGES.WAIT,
       isActive: isAskType
     });
       map.forEach((value, key, map)=> {
