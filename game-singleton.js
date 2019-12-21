@@ -1,29 +1,18 @@
 const { Game } = require('./game');
 
-class GameSingleton {
 
-  constructor() {
-    this.currentGame = null;
-  }
+  let currentGame = null;
 
   createGame = () => new Game();
 
-  getGame = () => this.currentGame;
-
-
   getGameSingleton = () => {
 
-    if (!this.currentGame) {
-      this.currentGame = this.createGame();
+    if (!currentGame) {
+      currentGame = createGame();
     }
-    console.log('game singleton', this.currentGame);
 
-    return this.currentGame;
+    return currentGame;
   };
 
-  close = () => {
-    this.currentGame = null;
-  }
-}
 
-module.exports = {GameSingleton};
+module.exports = { getGameSingleton };

@@ -5,7 +5,6 @@ const WebSocket = require("ws");
 const uuid = require('uuid');
 const app = express();
 const { Game } = require('./game');
-const { GameSingleton } = require('./game-singleton');
 
 const sessionParser = session({
     saveUninitialized: false,
@@ -20,15 +19,13 @@ const wsServer = new WebSocket.Server({ clientTracking: false, noServer: true })
  // msg={"step": 0, "message": "привет"}
  // connect = ws://localhost:8080/
 
-//  const game = new Game();
-const game = new GameSingleton();
-const currentGame = game.getGameSingleton();
+const game = new Game();
 
 server.on('upgrade', function(request, socket, head) {
   console.log('Parsing session from request...');
 
   sessionParser(request, {}, () => {
-    if (currentGame.partyTheme!=='') {
+    if (game.partyTheme!=='') {
       socket.destroy();
       console.log('the game has already begun');
 
@@ -46,14 +43,14 @@ server.on('upgrade', function(request, socket, head) {
 
 wsServer.on('connection', (ws, request) => {
     const userId = request.session.userId;
-    currentGame.handleConnection(userId, ws);
+    game.handleConnection(userId, ws);
 
     ws.on('message', function(msg) {
-      currentGame.handleMessageFromClient(msg, userId);
+      game.handleMessageFromClient(msg, userId);
       });
 
     ws.on('close', function() {
-      currentGame.processUserExit(userId);
+      game.processUserExit(userId);
     });
   });
 
