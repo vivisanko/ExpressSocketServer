@@ -8,13 +8,14 @@ class Game {
   constructor() {
     this.map = new Map();
     this.nickNames = new Map();
-    this.winners = [];
+    this.winners = new Map();
     this.userIds = [];
     this.partyTheme = "";
     this.activeUserIdx = 0;
     this.isAcceptAnswer = false;
     this.isIncludeNickname = false;
     this.isNicknameUnraveled = false;
+    this.lifeCyclePhase = 0;
   }
 
   handleConnection(userId, ws) {
@@ -51,7 +52,8 @@ class Game {
     this.isAcceptAnswer = false;
     this.isIncludeNickname = false;
     this.isNicknameUnraveled = false;
-    this.winners = [];
+    this.winners.clear();
+    this.lifeCyclePhase = 0;
   }
 
   createGameTheme() {
@@ -71,6 +73,7 @@ class Game {
     } else {
         this.createNicknames(msg, userId);
         if (nickNames.size===userIds.length){
+          this.lifeCyclePhase = 1;
           this.sendIndividualGeneralMessage(true);
         }
       }
@@ -83,6 +86,7 @@ class Game {
       this.isIncludeNickname = msg.toLowerCase().includes(`${nickNames.get(userIds[activeUserIdx]).toLowerCase()}`);
       this.isNicknameUnraveled = msg.toLowerCase().trim() === nickNames.get(userIds[activeUserIdx]).toLowerCase();
       this.isAcceptAnswer=true;
+      this.lifeCyclePhase = 2;
       }
       console.log('isIncludeNickname', this.isIncludeNickname);
       console.log('isNicknameUnraveled', this.isNicknameUnraveled);
@@ -92,25 +96,43 @@ class Game {
         this.processBoolClientMessages(msg);
         this.isAcceptAnswer=false;
         this.checkIsGameOver();
+        this.lifeCyclePhase = 1;
       }
   }
 
   processUserExit(userId){
-    // переписать newActiveUserIndex и логику elses
+    const isUserWasActive = this.userIds[this.activeUserIdx]===userId;
+    let activeUserId = this.userIds[this.activeUserIdx];
+    if (isUserWasActive) {
+      const newActiveUserIdx = this.createNewActiveUserIndex([userId]);
+      activeUserId = this.userIds[newActiveUserIdx];
+    }
     this.userIds = R.reject(el=>el===userId,this.userIds);
-      // const newActiveUserIdx = this.activeUserIdx===0 ? this.userIds.length - 1 : this.activeUserIdx - 1;
-      const newActiveUserIdx=0;
-      console.log('newActiveUserIdx', this.userIds[newActiveUserIdx]);
+
+      this.activeUserIdx = R.indexOf(activeUserId, this.userIds);
+
 
       this.map.delete(userId);
-      if(this.map.size===1){
-        this.sendCommonGeneralMessage(ACTION_MESSAGES.LAST);
-      } else {
-        this.sendIndividualGeneralMessage(false);
+
+      if (this.lifeCyclePhase === 0 || this.lifeCyclePhase === 3 ) {
+          this.sendCommonGeneralMessage(`${this.nickNames.get(userId)} left us`)
+      }  else {
         this.sendAdditionalMessageAboutExit(userId);
+        // this.sendIndividualGeneralMessage(false);
+
+        if (this.lifeCyclePhase === 1){
+          this.sendIndividualGeneralMessage(true);
+        }
+
+        if (this.lifeCyclePhase === 2){
+          this.sendIndividualGeneralMessage(isUserWasActive);
+        }
       }
 
-      this.activeUserIdx=newActiveUserIdx;
+      if(this.map.size===1){
+      this.sendCommonGeneralMessage(ACTION_MESSAGES.LAST);
+      }
+
       this.nickNames.delete(userId);
       if (this.partyTheme && R.isEmpty(this.userIds)){
        this.clearData();
@@ -119,7 +141,7 @@ class Game {
 
   checkIsGameOver(){
     const {winners, userIds} = this;
-    if(winners.length===userIds.length){
+    if(userIds.every(id=>winners.has(id))){
       this.sendCommonGeneralMessage(ACTION_MESSAGES.GAME_OVER);
       this.sendFinalMessage();
     } else {
@@ -138,16 +160,19 @@ class Game {
   }
 
   handleNextWinner(){
-    const {activeUserIdx, userIds, winners}=this;
     this.sendAdditionalMessageAboutWinner();
-    const previousActiveInd = activeUserIdx;
+    const previousActiveInd = this.activeUserIdx;
     this.activeUserIdx = this.createNewActiveUserIndex();
-    winners.push(userIds[previousActiveInd]);
+    const winnerKey = this.userIds[previousActiveInd];
+    console.log('nickNames.winnerKey', this.nickNames.get(winnerKey));
+    this.winners.set(winnerKey, this.nickNames.get(winnerKey));
+    console.log('winners', this.winners);
+
     this.isIncludeNickname = false;
     this.isNicknameUnraveled = false;
   }
 
-  createNewActiveUserIndex(){
+  createNewActiveUserIndex(excluded=[]){
     const {userIds, activeUserIdx, winners} = this;
 
     return R.compose(
@@ -160,7 +185,7 @@ class Game {
         console.log('indNowFromActive', indNowFromActive);
         return R.indexOf(activeUsers[R.lt(R.inc(indNowFromActive),R.length(activeUsers))?R.inc(indNowFromActive):0], userIds)
       },
-      R.reject(el=>R.includes(el,winners)),
+      R.reject(el=>R.includes(el, R.concat(R.keys(winners), excluded))),
     )(userIds,activeUserIdx)
   }
 
@@ -248,9 +273,10 @@ class Game {
   }
 
   sendFinalMessage(){
-    const {map, winners, nickNames} = this;
-    map.forEach((value, key, map)=> {
-      value.send(createFinalMessage(winners,nickNames, key));
+    // const {winners, map} = this;
+    this.lifeCyclePhase = 3
+    this.map.forEach((value, key, map)=> {
+      value.send(createFinalMessage(this.winners, key));
     })
   }
 

@@ -24,9 +24,9 @@ const createAdditionalMessage = (values = {person: 'anonymous', message: ''}) =>
      })}}`
   };
 
-  const createFinalMessage = (winners,names, person) => {
-    const  placeRating=JSON.stringify(winners.map(el=>names.get(el)));
-    const personPlace = winners.findIndex(el=>el===person);
+  const createFinalMessage = (winners, person) => {
+    const  placeRating = JSON.stringify(Array.from(winners.values()));
+    const personPlace = Array.from(winners.keys()).findIndex(el=>el===person);
     return `
     {"type": "${TYPES.FINAL}",
      "message": ${JSON.stringify({
