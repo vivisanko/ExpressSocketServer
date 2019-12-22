@@ -65,18 +65,22 @@ class Game {
     const {nickNames, userIds, partyTheme,} = this;
     if (nickNames.size < userIds.length) {
       console.log('partyTheme', partyTheme);
-
       if(partyTheme===''){
         this.clearData();
         this.createGameTheme();
         this.sendCommonGeneralMessage('');
     } else {
         this.createNicknames(msg, userId);
-        if (nickNames.size===userIds.length){
-          this.lifeCyclePhase = 1;
-          this.sendIndividualGeneralMessage(true);
-        }
+        this.checkIsStartParty();
       }
+    }
+  }
+
+  checkIsStartParty() {
+    const {nickNames, userIds} = this;
+    if (nickNames.size>=userIds.length){
+      this.lifeCyclePhase = 1;
+      this.sendIndividualGeneralMessage(true);
     }
   }
 
@@ -106,6 +110,8 @@ class Game {
     if (isUserWasActive) {
       const newActiveUserIdx = this.createNewActiveUserIndex([userId]);
       activeUserId = this.userIds[newActiveUserIdx];
+      this.isIncludeNickname = false;
+      this.isNicknameUnraveled = false;
     }
     this.userIds = R.reject(el=>el===userId,this.userIds);
 
@@ -116,6 +122,9 @@ class Game {
 
       if (this.lifeCyclePhase === 0 || this.lifeCyclePhase === 3 ) {
           this.sendCommonGeneralMessage(`${this.nickNames.get(userId)} left us`)
+          if(this.lifeCyclePhase===0){
+            this.checkIsStartParty();
+          }
       }  else {
         this.sendAdditionalMessageAboutExit(userId);
         // this.sendIndividualGeneralMessage(false);
@@ -185,7 +194,7 @@ class Game {
         console.log('indNowFromActive', indNowFromActive);
         return R.indexOf(activeUsers[R.lt(R.inc(indNowFromActive),R.length(activeUsers))?R.inc(indNowFromActive):0], userIds)
       },
-      R.reject(el=>R.includes(el, R.concat(R.keys(winners), excluded))),
+      R.reject(el=>R.includes(el, R.concat(Array.from(winners.keys()), excluded))),
     )(userIds,activeUserIdx)
   }
 
